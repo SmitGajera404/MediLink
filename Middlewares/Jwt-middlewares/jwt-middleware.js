@@ -6,9 +6,6 @@ dotenv.config();
 export const authenticateToken = async(req, res, next) => {
     const accessToken = req.headers.authorization;
     const refreshToken = req.headers.authorization;
-    console.log(req.headers);
-    console.log({accessToken,refreshToken});
-    
     try{
         const decoded = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
         req.user = decoded;

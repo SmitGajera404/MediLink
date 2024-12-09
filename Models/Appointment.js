@@ -12,7 +12,7 @@ const appointmentSchema = new Schema(
       required: true,
     },
     appointmentDate: {
-      type: Date, 
+      type: String, 
       required: true,
     },
     status: {
