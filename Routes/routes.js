@@ -12,6 +12,10 @@ Router.post('/v1.2/signin', signin);
 
 Router.post('/v1/addappointment', authenticateToken, createAppointment);
 
+Router.get('/get',(req, res) => {
+    res.send('Hello World!')
+})
+
 Router.get('/v1/sampleAPI',(req, res) => {
     addFakeData(req, res)
 })
