@@ -31,12 +31,11 @@ export const getAppointmentsByPatientMiddleware = async (req, res, next) => {
 
 export const clearAppointmentCache = async(req, res, next) => {
     const today = new Date();
-    const day = String(today.getDate()).padStart(2, '0'); // Ensure 2 digits
-    const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-    const year = today.getFullYear();
-    const formattedDate = `${day}-${month}-${year}`;
+    const formattedDate = today.toISOString().split('T')[0]
+    console.log(formattedDate);
+    
     try {
-        await redisInstance.del(`appointment:docter:${req.user.username}:${formattedDate}`)
+        await redisInstance.del(`appointment:doctor:${req.user.username}:${formattedDate}`)
         await redisInstance.del(`appointment:patient:${req.user.username}`);
         next();
     }

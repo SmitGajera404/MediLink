@@ -60,6 +60,9 @@ export const userSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'User', // This can link to the assigned doctor for patients
     },
+    available: {
+      type: Boolean,
+    },
     createdAt: {
       type: Date,
       default: Date.now,
