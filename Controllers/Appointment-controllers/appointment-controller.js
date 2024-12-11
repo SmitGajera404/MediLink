@@ -1,22 +1,16 @@
 import Appointment from "../../Models/Appointment.js"
 import { redisInstance } from "../../Database/Redis/instance.js";
-import { parse } from 'date-fns';
-import moment from "moment";
 import AppointmentSlot from "../../Models/AppointmentSlots.js";
 import User from "../../Models/User.js";
+import Leave from "../../Models/Leave.js";
 
-
-const getLatestAppointmentSlot = async(doctor) => {
+const getLatestAppointmentSlotForLeave = (doctor, latestSlot) => {
     try {
-        const latestSlot = await AppointmentSlot.findOne({ doctor: doctor }).sort({
-            slotTime: -1,
-        });
-        let nextSlotTime,istTime;
+        let nextSlotTime, istTime;
         if (latestSlot) {
-            nextSlotTime = new Date(latestSlot.slotTime);
+            nextSlotTime = new Date(latestSlot);
             nextSlotTime.setMinutes(nextSlotTime.getMinutes() + 30);
-            istTime=nextSlotTime
-            console.log(nextSlotTime);
+            istTime = nextSlotTime
         } else {
             nextSlotTime = new Date();
             nextSlotTime.setMinutes(nextSlotTime.getMinutes() + 15);
@@ -24,7 +18,57 @@ const getLatestAppointmentSlot = async(doctor) => {
             const utcTime = nextSlotTime.getTime();
             istTime = new Date(utcTime + istOffset * 60 * 1000);
         }
+        console.log(istTime);
 
+        const MIN_HOUR = 15;
+        const MAX_HOUR = 19;
+        const hour = istTime.getHours();
+
+        if (hour <= 9) {
+            istTime.setHours(MIN_HOUR, 0, 0, 0);
+            console.log(istTime);
+
+        } else if (hour >= 25) {
+            istTime.setDate(istTime.getDate() + 1);
+            istTime.setHours(MIN_HOUR, 0, 0, 0);
+        }
+
+        return istTime
+    } catch (error) {
+        return Date.now()
+    }
+}
+
+
+const getLatestAppointmentSlot = async (doctor) => {
+    try {
+        const latestSlot = await AppointmentSlot.findOne({ doctor: doctor }).sort({
+            slotTime: -1,
+        });
+        console.log("This is latest slot: " + latestSlot);
+        let nextSlotTime, istTime;
+        if (latestSlot) {
+            nextSlotTime = new Date(latestSlot.slotTime);
+            nextSlotTime.setMinutes(nextSlotTime.getMinutes() + 30);
+            istTime = nextSlotTime
+            console.log(istTime);
+        } else {
+            nextSlotTime = new Date();
+            nextSlotTime.setMinutes(nextSlotTime.getMinutes() + 15);
+            const istOffset = 330; // IST is UTC+5:30
+            const utcTime = nextSlotTime.getTime();
+            istTime = new Date(utcTime + istOffset * 60 * 1000);
+        }
+        const MIN_HOUR_SET = 15;
+        const MAX_HOUR_SET = 19;
+        const hour = istTime.getHours();
+        console.log(hour);
+        if (hour <= 9) {
+            istTime.setHours(MIN_HOUR_SET, 0, 0, 0);
+        } else if (hour >= 25) {
+            istTime.setDate(istTime.getDate() + 1);
+            istTime.setHours(MIN_HOUR_SET, 0, 0, 0);
+        }
         return istTime
     } catch (error) {
         return Date.now()
@@ -35,26 +79,61 @@ const getLatestAppointmentSlot = async(doctor) => {
 export const getLatestSlot = async (req, res) => {
     const { doctor } = req.query;
     try {
+        // const slot = getLatestAppointmentSlotForLeave(doctor, new Date('2024-12-15'))
         const istTime = await getLatestAppointmentSlot(doctor);
-        res.status(200).json({ message: "Time slot fetched successfully!", data: istTime });
+        const slot = await checkDoctorAvailabilityAndProvideLatestSlot(doctor, istTime)
+        res.status(200).json({ message: "Time slot fetched successfully!", data: slot ? slot : istTime });
     } catch (error) {
         res.status(500).json({ message: "Some error occurred while fetching the latest slot", error: error.message });
     }
 };
 
+//20  Leave.find({username:doctor, leave:{ $gte:Date.now(330* 60* 1000) }})
+//20   if(leave exists){
+//      istTime < leave.leave && istTime > leave.today { getLatestSlot(doc, leave.leave) } else {}
+//12
+
+const checkDoctorAvailabilityAndProvideLatestSlot = async (istTime, doctor) => {
+    try {
+        const isDocotorAvailable = await User.findOne({ username: doctor, available: false })
+        console.log(isDocotorAvailable, istTime);
+
+        if (isDocotorAvailable) {
+            const leave = await Leave.find({ doctor: doctor, leave: { $gte: Date.now(330 * 60 * 1000) } });
+            console.log(leave);
+            if (leave.length > 0) {
+                if (istTime < leave[0].leave && istTime > leave[0].today) {
+                    const slot = getLatestAppointmentSlotForLeave(doctor, leave[0].leave);
+                    console.log("slot: " + slot);
+                    return slot;
+                } else {
+                    return null;
+                }
+            } else {
+                return null;
+            }
+        } else {
+            return null;
+        }
+    } catch (error) {
+        console.log(error);
+
+        return null;
+    }
+}
+
+
 
 export const createAppointment = async (req, res) => {
     try {
-        const doctor = await User.findOne({ username: req.body.doctor },{ available:1, _id:0 });
-        if(!doctor.available){
-            res.status(409).json({ message: "The doctor is not available for the selected time slot." })
-        }
         const istTime = await getLatestAppointmentSlot(req.body.doctor);
-        const newAppointment = new Appointment({ ...req.body, appointmentDate:istTime });
-        const newAppointmentSlot = new AppointmentSlot({ doctor:req.body.doctor,appointment:newAppointment._id,status: "booked",slotTime: istTime});
+        const doctorOnLeaveAtThisTime = await checkDoctorAvailabilityAndProvideLatestSlot(istTime, req.body.doctor);
+        console.log(doctorOnLeaveAtThisTime);
+        const newAppointment = new Appointment({ ...req.body, appointmentDate: doctorOnLeaveAtThisTime ? doctorOnLeaveAtThisTime : istTime });
+        const newAppointmentSlot = new AppointmentSlot({ doctor: req.body.doctor, appointment: newAppointment._id, status: "booked", slotTime: doctorOnLeaveAtThisTime ? doctorOnLeaveAtThisTime : istTime });
         await newAppointmentSlot.save();
         await newAppointment.save();
-        res.status(201).json({ message: "Appointment created successfully", data: {newAppointment ,newAppointmentSlot} });
+        res.status(201).json({ message: "Appointment created successfully", data: { newAppointment, newAppointmentSlot } });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Failed to create appointment", error: error.message });
@@ -74,23 +153,23 @@ export const getAppointmentByDoctor = async (req, res) => {
         let appointmentIds = []
         let startTime = new Date();
         startTime.setHours(0, 0, 0, 0); // Start of the day: 12:00 AM
-        
+
         let endTime = new Date();
         endTime.setHours(23, 59, 59, 999); // End of the day: 11:59:59 PM
-        
+
         const abc = await AppointmentSlot.find({
             doctor: user.username,
             slotTime: { $gte: startTime, $lte: endTime },
-        }, {appointment:1, _id:0});
-        
+        }, { appointment: 1, _id: 0 });
+
         abc.forEach(element => {
             appointmentIds.push(element.appointment)
         });
         const appointments = await Appointment.find({
-            _id: {$in: appointmentIds}
+            _id: { $in: appointmentIds }
         });
         console.log(appointments);
-        
+
         // Cache the result in Redis for quicker subsequent retrievals
         const cacheKey = `appointment:doctor:${user.username}:${date}`;
         await redisInstance.hset(cacheKey, "data", JSON.stringify(appointments));

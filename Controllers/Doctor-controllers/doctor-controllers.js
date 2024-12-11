@@ -19,17 +19,17 @@ export const declareLeave = async (req, res) => {
         endTime.setHours(23, 59, 59, 999);
 
         const appointments = await Appointment.updateMany(
-            { appointmentDate: { $gte: startTime, $lte: endTime } },
+            { doctor: doctor,appointmentDate: { $gte: startTime, $lte: endTime } },
             { $set: { status: 'canceled' } },
             { new: true }
         );
 
         const appointmentSlots = await AppointmentSlot.updateMany(
-            { slotTime: { $gte: startTime, $lte: endTime } },
+            { doctor:doctor,slotTime: { $gte: startTime, $lte: endTime } },
             { $set: { status: 'canceled' } },
             { new: true }
         );
-
+        await newLeave.save();
         res.status(202).json({ message: "Status updated successfully", appointments, appointmentSlots });
     } catch (error) {
         res.status(500).json({ message: 'Some error occured while updating leave status', error: error.message });
