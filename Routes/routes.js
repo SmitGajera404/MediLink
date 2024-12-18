@@ -7,8 +7,8 @@ import { clearAppointmentCache, getAppointmentsByDocterMiddleware, getAppointmen
 import { verifyUserAndAppointmentId } from '../Middlewares/Appointment-middlewares/authorization-middlewares.js';
 import { authenticateIsAdmin, authenticateIsAdminOrDoctor } from '../Middlewares/Admin-middlewares/authorization-middlewares.js';
 import { onboardDoctor } from '../Controllers/Admin-controllers/doctor-controllers.js';
-import { declareLeave, getDoctorDetails, withdrawLeave } from '../Controllers/Doctor-controllers/doctor-controllers.js';
-import { authenticateIsDoctor } from '../Middlewares/Doctor-middlewares/authorization-middlewares.js';
+import { declareLeave, getAvailableDoctors, getDoctorDetails, withdrawLeave } from '../Controllers/Doctor-controllers/doctor-controllers.js';
+import { authenticateIsDoctor, validateDoctor } from '../Middlewares/Doctor-middlewares/authorization-middlewares.js';
 import { getPatient } from '../Controllers/Patient-controllers/patient-controller.js';
 import { disableLeaveIfAlreadyLeaveExists } from '../Middlewares/Doctor-middlewares/leave-middlewares.js';
 import { getMedicinesByActiveIngredient, getMedicinesByPurpose } from '../Controllers/Doctor-controllers/medicine-controllers.js';
@@ -25,7 +25,7 @@ Router.patch('/appointments/update/status/:id/:update', authenticateToken, clear
 
 Router.post('/addappointment', authenticateToken, clearAppointmentCache, createAppointment);
 
-Router.get('/appointments/latest/slot', authenticateToken, getLatestSlot);
+Router.get('/appointments/latest/slot', authenticateToken, validateDoctor, getLatestSlot);
 
 Router.post('/doctor/leave', authenticateToken, authenticateIsDoctor, disableLeaveIfAlreadyLeaveExists, declareLeave);
 
@@ -36,6 +36,7 @@ Router.get('/patient/', authenticateToken , authenticateIsAdminOrDoctor, getPati
 Router.get('/doctor/', authenticateToken , getDoctorDetails);
 
 Router.get('/doctor/search/medicine/active_ingredient', authenticateToken, authenticateIsDoctor, getMedicinesByActiveIngredient)
+
 Router.get('/doctor/search/medicine/purpose', authenticateToken, authenticateIsDoctor, getMedicinesByPurpose)
 
 Router.post('/onboard/doctor', authenticateToken, authenticateIsAdmin, onboardDoctor);
@@ -45,6 +46,7 @@ Router.get('/appointments/doctor', authenticateToken, getAppointmentsByDocterMid
 
 Router.get('/appointments/patient', authenticateToken, getAppointmentsByPatientMiddleware, getAppointmentByPatient)
 
+Router.get('/doctor/available', authenticateToken, getAvailableDoctors)
 Router.get('/get', (req, res) => {
     res.send('Hello World!')
 })

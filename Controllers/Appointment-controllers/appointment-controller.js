@@ -5,7 +5,7 @@ import User from "../../Models/User.js";
 import Leave from "../../Models/Leave.js";
 import { convertToIST } from "../../Utils/Date-Time-Utils/utils.js";
 
-const getLatestAppointmentSlotForLeave = (doctor, latestSlot) => {
+export const getLatestAppointmentSlotForLeave = (doctor, latestSlot) => {
     try {
         let nextSlotTime, istTime;
         if(latestSlot < Date.now()){
@@ -45,7 +45,7 @@ const getLatestAppointmentSlotForLeave = (doctor, latestSlot) => {
     }
 }
 
-const getLatestAppointmentSlot = async (doctor) => { 
+export const getLatestAppointmentSlot = async (doctor) => { 
     try {
         let latestSlot = await AppointmentSlot.findOne({ doctor: doctor }).sort({
             slotTime: -1,
@@ -81,7 +81,6 @@ const getLatestAppointmentSlot = async (doctor) => {
     }
 }
 
-
 export const getLatestSlot = async (req, res) => {
     const { doctor } = req.query;
     try {
@@ -95,7 +94,7 @@ export const getLatestSlot = async (req, res) => {
 
 
 
-const checkDoctorAvailabilityAndProvideLatestSlot = async (istTime, doctor) => {
+export const checkDoctorAvailabilityAndProvideLatestSlot = async (istTime, doctor) => {
     try {
         const isDocotorAvailable = await User.findOne({ username: doctor, available: false })
         console.log("Hello");

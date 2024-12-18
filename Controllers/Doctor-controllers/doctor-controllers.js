@@ -3,6 +3,8 @@ import AppointmentSlot from "../../Models/AppointmentSlots.js";
 import Leave from "../../Models/Leave.js";
 import User from "../../Models/User.js"
 import { convertToIST } from "../../Utils/Date-Time-Utils/utils.js";
+import { checkDoctorAvailabilityAndProvideLatestSlot, getLatestAppointmentSlot } from "../Appointment-controllers/appointment-controller.js";
+
 
 export const declareLeave = async (req, res) => {
     try {
@@ -60,17 +62,54 @@ export const withdrawLeave = async (req, res) => {
     }
 }
 
+const getLatestSlot = async (doctor) => {
+    try {
+        const istTime = await getLatestAppointmentSlot(doctor);
+        const slot = await checkDoctorAvailabilityAndProvideLatestSlot(istTime, doctor)
+        return (slot ? slot : istTime)
+    } catch (error) {
+        console.log(error);
+        return (error.message)
+    }
+};
+
 export const getAvailableDoctors = async(req, res) => {
     try {
-        const {startTime,endTime} = req.query;
-        const leaves = await Leave.find({})
-        const availableLeavesPartially = leaves.filter(leave => leave.leave >= new Date(startTime) && leave.leave <= new Date(endTime));
-        const doctorsWhoWillBeOnLeave = availableLeavesPartially.map(async leave => {
-            return await User.find({username: leave.doctor})
-        })
-        const appointmentSlotsDuringTimings = await AppointmentSlot.find({$})
-        const doctors = await User.find({ role: 'doctor', available: true });
-        res.status(200).json({ message: "Available doctors", doctors });
+        const { startTime, endTime } = req.query;
+        const allDoctors = await User.find({ role: 'doctor' });
+        
+        const doctorAvailability = await Promise.all(
+            allDoctors.map(async (doctor) => {
+                let latestSlot = await getLatestSlot(doctor.username);
+                if (latestSlot >= convertToIST(new Date(startTime)) && latestSlot <= convertToIST(new Date(endTime))) {
+                    console.log(`True for ${doctor.username}`, latestSlot);
+                    return { doctor, isAvailable: true };
+                } else {
+                    return { doctor, isAvailable: false };
+                }
+            })
+        );
+        
+        // Filter only available doctors
+        const availableDoctors = doctorAvailability
+            .filter(doctorInfo => doctorInfo.isAvailable)
+            .map(doctorInfo => doctorInfo.doctor);
+        
+        console.log(availableDoctors);
+        
+        
+        // const leaves = await Leave.find({})
+        // const availableLeavesPartially = leaves.filter(leave => (leave.leave >= new Date(startTime) && leave.leave <= new Date(endTime)) || 
+        // (leave.today>=new Date(startTime)));
+        // console.log("availableLeavesPartially", availableLeavesPartially);
+        // const doctorsWhoWillBeOnLeave = availableLeavesPartially.map(async leave => {
+        //     return await User.find({username: leave.doctor})
+        // })
+        // const availableDoctors = await Promise.all(doctorsWhoWillBeOnLeave);
+        // const notAvailableDoctorsByAppointment = await Appointment.find({})
+        // // const appointmentSlotsDuringTimings = await AppointmentSlot.find({$})
+        // const doctors = await User.find({ role: 'doctor', available: true });
+        res.status(200).json({ message: "Available doctors", availableDoctors });
     } catch (error) {
         res.status(500).json({ message: "Some error occurred while fetching available doctors", error: error.message });
     }
