@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { convertToIST } from "../Utils/Date-Time-Utils/utils.js";
 const leaveSchema = mongoose.Schema({
     doctor:{
         type:String,
@@ -6,7 +7,7 @@ const leaveSchema = mongoose.Schema({
     },
     today:{
         type:Date,
-        default: Date.now(330 * 60 * 1000)
+        default: convertToIST(new Date())
     },
     leave:{
         type:Date,

@@ -31,7 +31,7 @@ export const signin = async (req, res) => {
             let isPasswordCorrect = await bcrypt.compare(password, existingUserViaEmail.password);
             if (!isPasswordCorrect) {
                 return res.status(400).json({ message: "Invalid credentials" });
-            }
+            }  
             accessToken = jwt.sign(existingUserViaEmail.toJSON(), process.env.ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
         }
 
@@ -43,7 +43,7 @@ export const signin = async (req, res) => {
     } catch (error) {
         console.error(error);
         return res.status(401).json({
-            message: "Invalid credentials",
+            message: "Invalid Access Token Error",
             error: error.message
         })
     }

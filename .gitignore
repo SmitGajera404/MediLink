@@ -22,6 +22,11 @@ coverage
 node_modules/
 jspm_packages/
 
+#docker builds
+Dockerfile
+docker-compose.yml
+.dockerignore
+
 # Optional npm cache directory
 .npm
 
